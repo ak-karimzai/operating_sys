@@ -1,0 +1,29 @@
+s - interreputable sleep
+d - ?
+
+
+listing 13.1 and 13.2
+
+lockfile function ;; to develop
+
+
+listing 13.3 main function and
+
+demon will be starts from terminal with adminstrator asking
+
+1-simple file
+2- directory file
+3- symbol link -- showing as "l" in terminal
+5 - fifo  "p"
+
+listing 4.1 code for finding the file type
+
+part 4.21 and listing no Листинг 4.7.
+
+inode id is the id of ??? (ino_t st_ino;)
+
+в иникс ид файла яв-ся inode 
+
+full_name - file name with directory
+short_name - without directory if system already knows about this directory !! что дает короткая имена? почему нужно изменить дироктории если нет на систем каталог?
+
