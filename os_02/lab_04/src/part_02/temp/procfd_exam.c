@@ -7,14 +7,40 @@
 #include <linux/module.h> /* Specifically, a module */ 
 #include <linux/proc_fs.h> /* Necessary because we use proc fs */ 
 #include <linux/seq_file.h> /* for seq_file */ 
+#include <linux/vmalloc.h> /* for seq_file */ 
 #include <linux/version.h> 
  
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0) 
-#define HAVE_PROC_OPS 
-#endif 
+#define MAX_COOKIE_LEN PAGE_SIZE
  
-#define PROC_NAME "iter" 
+#define PROC_NAME "" 
  
+//  ////////////////
+ static char *cookie_pot;
+static int cookie_index;
+static int next_fortune;
+
+static char tmp[MAX_COOKIE_LEN];
+
+
+static ssize_t fortune_write(struct file *filp, const char __user *buff, unsigned long len, loff_t *data) {
+    int space_avle = MAX_COOKIE_LEN - cookie_index + 1;
+    
+    if (space_avle < len) {
+        printk(KERN_INFO "sequence: cookie pot is full!\n");
+        return -ENOSPC;
+    }
+
+    if (copy_from_user(&cookie_pot[cookie_index], buff, len)) {
+        printk(KERN_INFO "copy_from_user error!\n");
+        return -EFAULT;
+    }
+
+    cookie_index += len;
+    cookie_pot[cookie_index - 1] = '\0';
+    return len;
+}
+/////////////////////////////////////////
+
 /* This function is called at the beginning of a sequence. 
  * ie, when: 
  *   - the /proc file is read (first time) 
@@ -55,9 +81,8 @@ static void my_seq_stop(struct seq_file *s, void *v)
 /* This function is called for each "step" of a sequence. */ 
 static int my_seq_show(struct seq_file *s, void *v) 
 { 
-    loff_t *spos = (loff_t *)v; 
  
-    seq_printf(s, "seq: %Ld\n", *spos); 
+    seq_printf(s, "seq: %s\n", ((char*) v) ); 
     return 0; 
 } 
  
@@ -76,39 +101,34 @@ static int my_open(struct inode *inode, struct file *file)
 }; 
  
 /* This structure gather "function" that manage the /proc file */ 
-#ifdef HAVE_PROC_OPS 
 static const struct proc_ops my_file_ops = { 
     .proc_open = my_open, 
+    .proc_write = fortune_write, 
     .proc_read = seq_read, 
     .proc_lseek = seq_lseek, 
     .proc_release = seq_release, 
 }; 
-#else 
-static const struct file_operations my_file_ops = { 
-    .open = my_open, 
-    .read = seq_read, 
-    .llseek = seq_lseek, 
-    .release = seq_release, 
-}; 
-#endif 
  
 static int __init procfs4_init(void) 
 { 
     struct proc_dir_entry *entry; 
  
-    entry = proc_create(PROC_NAME, 0, NULL, &my_file_ops); 
-    if (entry == NULL) { 
+    entry = proc_create(PROC_NAME, 0666, NULL, &my_file_ops); 
+    if (entry == NULL) {
+        cookie_pot = (char *) vmalloc(MAX_COOKIE_LEN);
         remove_proc_entry(PROC_NAME, NULL); 
         pr_debug("Error: Could not initialize /proc/%s\n", PROC_NAME); 
         return -ENOMEM; 
     } 
- 
+
+    next_fortune = cookie_index = 0;
     return 0; 
 } 
  
 static void __exit procfs4_exit(void) 
 { 
     remove_proc_entry(PROC_NAME, NULL); 
+    // vfree(cookie_pot);
     pr_debug("/proc/%s removed\n", PROC_NAME); 
 } 
  
