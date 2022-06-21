@@ -15,7 +15,7 @@ clean:
 	@rm -rf .tmp_versions
 
 disclean: clean
-	@rm *.ko *.symvers *.mod
+	@rm -rf *.ko *.symvers *.mod
 
 load:
 	sudo insmod $(TARGET1).ko

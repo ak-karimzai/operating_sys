@@ -11,6 +11,7 @@ MODULE_DESCRIPTION("tasklet");
 #define SCANCODE_RELEASED_MASK	0x80
 
 static int dev_id;
+static int scancode;
 
 char my_tasklet_data[] = "KEYBOARD INTERRUPT";
 struct tasklet_struct my_tasklet;
@@ -40,7 +41,6 @@ static int get_ascii(unsigned int scancode)
 
 void my_tasklet_function(unsigned long data)
 {
-	int scancode = inb(0x60);
 	if (scancode < 103) {
 		printk(KERN_INFO "my_tasklet: %s: scancode: %d, inputed char: %c\n", (char *)data, scancode, get_ascii(scancode));
 	}
@@ -49,6 +49,7 @@ void my_tasklet_function(unsigned long data)
 irqreturn_t my_irq_handler(int irq, void *dev)
 {
 	if (irq == IRQ) {
+		scancode = inb(0x60);
 		tasklet_schedule(&my_tasklet);
 		return IRQ_HANDLED;
 	}

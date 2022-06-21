@@ -17,9 +17,7 @@ MODULE_DESCRIPTION("workqueue");
 #define IRQ 1 /* keyboard interrupt */
 #define SCANCODE_RELEASED_MASK	0x80
 
-char *key;
 int status;
-int priority_level = 0;
 char scancode;
 static int dev_id;
 struct workqueue_struct *work_queue;
@@ -55,30 +53,24 @@ static inline u8 i8042_read_data(void)
 }
 
 void queue_function_fir(struct work_struct *work) {
-    if (priority_level == 0) return;
-    scancode = i8042_read_data();
-    key = get_ascii(scancode);
-    printk(KERN_INFO "workseq: Key was clicked (1 worker) Key: %c\n", key);
-    msleep(10);
-    priority_level = 0;
+    printk(KERN_INFO "workseq %s: scancode: %d, inputed char: %c\n", __func__, scancode, get_ascii(scancode));
+    // msleep(100);
+    // printk(KERN_INFO "workseq %s: after blocking scancode: %d, inputed char: %c\n", __func__, scancode, get_ascii(scancode));
 }
 
 void queue_function_sec(struct work_struct *work) {
-    if (priority_level == 1) return;
-    scancode = i8042_read_data();
-    key = get_ascii(scancode);
-    printk(KERN_INFO "workseq: Key was clicked (2 worker). Key: %c\n", key);
-    priority_level = 1;
+    printk(KERN_INFO "workseq %s: scancode: %d, inputed char: %c\n", __func__, scancode, get_ascii(scancode));
 }
 
-struct work_struct fWork;
-struct work_struct sWork;
+struct work_struct fir_work;
+struct work_struct sec_work;
 
 irqreturn_t handler(int irq, void *dev) {
     printk(KERN_INFO "workseq: move work to queue...\n");
     if (irq == IRQ) {
-        queue_work(work_queue, &fWork);
-        queue_work(work_queue, &sWork);
+        scancode = i8042_read_data();
+        queue_work(work_queue, &fir_work);
+        queue_work(work_queue, &sec_work);
         return IRQ_HANDLED;
     }
     return IRQ_NONE;
@@ -88,19 +80,19 @@ static struct proc_dir_entry *file = NULL;
 
 int procShow(struct seq_file *filep, void *v) {
     printk(KERN_INFO "workseq: called show\n");
-    seq_printf(filep, "Data of a 1 work: %d", fWork.data);
-    seq_printf(filep, "Data of a 2 work: %d", sWork.data);
+    seq_printf(filep, "Data of a 1 work: %d", fir_work.data);
+    seq_printf(filep, "Data of a 2 work: %d", sec_work.data);
     return 0;
 }
 
 int _proc_open(struct inode *inode, struct file *file_inner) {
     printk(KERN_INFO "workseq: called open\n");
-    return single_open(fileInner, procShow, NULL);
+    return single_open(file_inner, procShow, NULL);
 }
 
 int _proc_release(struct inode *inode, struct file *file_inner) {
     printk(KERN_INFO "workseq: called release\n");
-    return single_release(inode, fileInner);
+    return single_release(inode, file_inner);
 }
 
 static struct proc_ops fops = {
@@ -122,8 +114,8 @@ static int __init work_queue_init(void) {
         return -ENOMEM;
     }
 
-    INIT_WORK(&fWork, queue_function_fir);
-    INIT_WORK(&sWork, queue_function_sec);
+    INIT_WORK(&fir_work, queue_function_fir);
+    INIT_WORK(&sec_work, queue_function_sec);
 
     if (!proc_create("work_queue", 0666, file, &fops)) {
         printk(KERN_INFO "workseq: cannot proc_create!\n");
